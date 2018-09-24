@@ -1,3 +1,6 @@
+[![Latest version](https://img.shields.io/crates/v/keypad.svg)](https://crates.io/crates/keypad)
+[![Documentation](https://docs.rs/keypad/badge.svg)](https://docs.rs/keypad)
+
 # Keypad
 
 This driver lets you read the state of any key in a keypad matrix circuit as if
