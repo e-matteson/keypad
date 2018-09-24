@@ -46,6 +46,9 @@ This example uses mock types that implement the `embeddded-hal` traits without u
 any real hardware. It will compile and run on your host computer, but it
 won't do anything interesting because there are no real buttons to press.
 
+For an example that runs on an actual microcontroller, see [keypad-bluepill-example](https://github.com/e-matteson/keypad-bluepill-example).
+
+
 ``` rust
 #![feature(nll)]
 #[macro_use]
