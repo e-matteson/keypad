@@ -4,6 +4,7 @@
 //! any real hardware. It will compile and run on your host computer, but it
 //! won't do anything interesting because there are no real buttons to press.
 
+#![feature(macro_vis_matcher)]
 #![feature(nll)]
 #[macro_use]
 extern crate keypad;

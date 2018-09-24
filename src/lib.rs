@@ -54,6 +54,7 @@
 //! generated here.
 //!
 //! ```
+//! # #![feature(macro_vis_matcher)]
 //! #![feature(nll)]
 //! #[macro_use]
 //! extern crate keypad;
@@ -126,7 +127,6 @@
 //! }
 //! ```
 //!
-
 #![no_std]
 #![warn(missing_docs)]
 #![feature(macro_vis_matcher)]
@@ -200,6 +200,7 @@ impl<'a> InputPin for KeypadInput<'a> {
 /// # Example
 ///
 /// ```
+/// # #![feature(macro_vis_matcher)]
 /// # extern crate core;
 /// #[macro_use]
 /// extern crate keypad;
@@ -355,6 +356,7 @@ macro_rules! keypad_struct {
 /// The pins will need to match the types you specified in the `keypad_struct!()` macro.
 ///
 /// ```
+/// # #![feature(macro_vis_matcher)]
 /// # extern crate core;
 /// # #[macro_use]
 /// # extern crate keypad;
