@@ -9,7 +9,7 @@ description = "Platform-agnostic driver for keypad matrix circuits"
 homepage = "https://github.com/e-matteson/keypad"
 repository = "https://github.com/e-matteson/keypad"
 documentation = "https://docs.rs/keypad"
-
+readme="readme.md"
 
 [dependencies.embedded-hal]
 features = ["unproven"]
