@@ -219,6 +219,12 @@ impl<'a> InputPin for KeypadInput<'a> {
 /// }
 /// # fn main() {}
 /// ```
+///
+/// # Safety
+///
+/// This macro uses `unsafe` to create an array with uninitialized memory, which
+/// is then immediately initialized in a loop. This is fine as long as there is
+/// not a bug in how the macro calculates the dimensions of the array.
 #[macro_export]
 macro_rules! keypad_struct {
     (
@@ -382,7 +388,6 @@ macro_rules! keypad_struct {
 /// });
 /// # }
 /// ```
-
 #[macro_export]
 macro_rules! keypad_new {
     ( $struct_name:ident {
