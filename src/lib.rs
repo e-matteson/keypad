@@ -129,6 +129,7 @@
 
 #![no_std]
 #![warn(missing_docs)]
+#![feature(macro_vis_matcher)]
 
 pub mod mock_hal;
 
