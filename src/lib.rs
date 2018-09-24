@@ -12,7 +12,11 @@
 //! than available pins. One solution is to use a keypad matrix circuit that
 //! lets you read from N*M keys using only N+M pins.
 //!
-//! [TODO drawing]
+//! ![matrix](https://raw.githubusercontent.com/e-matteson/keypad/58d087473246cdbf232b2831f9fc18c0a7a29fc7/matrix_schem.png)
+//!
+//! In this circuit, each row is an input pin with a pullup resistor, and each
+//! column is an open-drain output pin. You read the state of a particular key by
+//! driving its column pin low and reading its row pin.
 //!
 //! A downside of this approach is that it increases code complexity. Instead of
 //! reading a single input pin to check if a key is pressed, you need to

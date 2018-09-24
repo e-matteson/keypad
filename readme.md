@@ -12,7 +12,9 @@ key to one input pin. However, that won't work if you have more keys than
 available pins. One solution is to use a keypad matrix circuit that lets you
 read from N*M keys using only N+M pins.
 
-![matrix](https://raw.githubusercontent.com/e-matteson/keypad/ebda159690020e1c731f6ca57d9d8fc797168101/matrix_schem.jpg)
+![matrix](https://raw.githubusercontent.com/e-matteson/keypad/58d087473246cdbf232b2831f9fc18c0a7a29fc7/matrix_schem.png)
+
+In this example, each row is an input pin with a pullup resistor, and each column is an open-drain output. You read the state of a particular key by driving its column pin low and reading its row pin.
 
 A downside of this approach is that it increases code complexity. Instead of
 reading a single input pin to check if a key is pressed, you need to
@@ -44,78 +46,78 @@ This example uses mock types that implement the `embeddded-hal` traits without u
 any real hardware. It will compile and run on your host computer, but it
 won't do anything interesting because there are no real buttons to press.
 
+``` rust
+#![feature(nll)]
+#[macro_use]
+extern crate keypad;
+extern crate core;
 
-    #![feature(nll)]
-    #[macro_use]
-    extern crate keypad;
-    extern crate core;
+use keypad::embedded_hal::digital::InputPin;
+use keypad::mock_hal::{self, GpioExt, Input, OpenDrain, Output, PullUp, GPIOA};
 
-    use keypad::embedded_hal::digital::InputPin;
-    use keypad::mock_hal::{self, GpioExt, Input, OpenDrain, Output, PullUp, GPIOA};
+// Define the struct that represents your keypad matrix circuit, picking the
+// row and column pin numbers.
+keypad_struct!{
+    struct ExampleKeypad {
+        rows: (
+            mock_hal::gpioa::PA0<Input<PullUp>>,
+            mock_hal::gpioa::PA1<Input<PullUp>>,
+            mock_hal::gpioa::PA2<Input<PullUp>>,
+            mock_hal::gpioa::PA3<Input<PullUp>>,
+        ),
+        columns: (
+            mock_hal::gpioa::PA4<Output<OpenDrain>>,
+            mock_hal::gpioa::PA5<Output<OpenDrain>>,
+            mock_hal::gpioa::PA6<Output<OpenDrain>>,
+            mock_hal::gpioa::PA7<Output<OpenDrain>>,
+            mock_hal::gpioa::PA8<Output<OpenDrain>>,
+        ),
+    }
+}
 
-    // Define the struct that represents your keypad matrix circuit, picking the
-    // row and column pin numbers.
-    keypad_struct!{
-        struct ExampleKeypad {
-            rows: (
-                mock_hal::gpioa::PA0<Input<PullUp>>,
-                mock_hal::gpioa::PA1<Input<PullUp>>,
-                mock_hal::gpioa::PA2<Input<PullUp>>,
-                mock_hal::gpioa::PA3<Input<PullUp>>,
-            ),
-            columns: (
-                mock_hal::gpioa::PA4<Output<OpenDrain>>,
-                mock_hal::gpioa::PA5<Output<OpenDrain>>,
-                mock_hal::gpioa::PA6<Output<OpenDrain>>,
-                mock_hal::gpioa::PA7<Output<OpenDrain>>,
-                mock_hal::gpioa::PA8<Output<OpenDrain>>,
-            ),
+fn main() {
+    let pins = GPIOA::split();
+
+    // Create an instance of the keypad struct you defined above.
+    let keypad = keypad_new!(ExampleKeypad {
+        rows: (
+            pins.pa0.into_pull_up_input(),
+            pins.pa1.into_pull_up_input(),
+            pins.pa2.into_pull_up_input(),
+            pins.pa3.into_pull_up_input(),
+        ),
+        columns: (
+            pins.pa4.into_open_drain_output(),
+            pins.pa5.into_open_drain_output(),
+            pins.pa6.into_open_drain_output(),
+            pins.pa7.into_open_drain_output(),
+            pins.pa8.into_open_drain_output(),
+        ),
+    });
+
+    // Create a 2d array of virtual `KeyboardInput` pins, each representing 1 key in the
+    // matrix. They implement the `InputPin` trait and can (mostly) be used
+    // just like any other embedded-hal input pins.
+    let keys = keypad.decompose();
+
+    let first_key = &keys[0][0];
+    println!("Is first key pressed? {}\n", first_key.is_low());
+
+    // Print a table of which keys are pressed.
+
+    for (row_index, row) in keys.iter().enumerate() {
+        print!("row {}: ", row_index);
+        for key in row.iter() {
+            let is_pressed = if key.is_low() { 1 } else { 0 };
+            print!(" {} ", is_pressed);
         }
+        println!();
     }
 
-    fn main() {
-        let pins = GPIOA::split();
-
-        // Create an instance of the keypad struct you defined above.
-        let keypad = keypad_new!(ExampleKeypad {
-            rows: (
-                pins.pa0.into_pull_up_input(),
-                pins.pa1.into_pull_up_input(),
-                pins.pa2.into_pull_up_input(),
-                pins.pa3.into_pull_up_input(),
-            ),
-            columns: (
-                pins.pa4.into_open_drain_output(),
-                pins.pa5.into_open_drain_output(),
-                pins.pa6.into_open_drain_output(),
-                pins.pa7.into_open_drain_output(),
-                pins.pa8.into_open_drain_output(),
-            ),
-        });
-
-        // Create a 2d array of virtual `KeyboardInput` pins, each representing 1 key in the
-        // matrix. They implement the `InputPin` trait and can (mostly) be used
-        // just like any other embedded-hal input pins.
-        let keys = keypad.decompose();
-
-        let first_key = &keys[0][0];
-        println!("Is first key pressed? {}\n", first_key.is_low());
-
-        // Print a table of which keys are pressed.
-
-        for (row_index, row) in keys.iter().enumerate() {
-            print!("row {}: ", row_index);
-            for key in row.iter() {
-                let is_pressed = if key.is_low() { 1 } else { 0 };
-                print!(" {} ", is_pressed);
-            }
-            println!();
-        }
-
-        // Give up ownership of the row and column pins.
-        let ((_r0, _r1, _r2, _r3), (_c0, _c1, _c2, _c3, _c4)) = keypad.release();
-    }
-
+    // Give up ownership of the row and column pins.
+    let ((_r0, _r1, _r2, _r3), (_c0, _c1, _c2, _c3, _c4)) = keypad.release();
+}
+```
 
 ## License
 
