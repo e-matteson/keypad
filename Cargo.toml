@@ -1,6 +1,6 @@
 [package]
 name = "keypad"
-version = "0.1.2"
+version = "0.1.3"
 authors = ["e-matteson <e.r.matteson@gmail.com>"]
 license = "MIT OR Apache-2.0"
 categories = ["embedded", "hardware-support", "no-std"]
@@ -14,3 +14,7 @@ readme="readme.md"
 [dependencies.embedded-hal]
 features = ["unproven"]
 version = "0.2.1"
+
+[[bin]]
+name = "example"
+doc = true
