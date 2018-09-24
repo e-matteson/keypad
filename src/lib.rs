@@ -22,9 +22,8 @@
 //! The purpose of this driver is to use the `embedded-hal` traits to hide that
 //! complexity. It does this by giving you a set of virtual `KeyInput` pins, each
 //! of which represent one key in your keypad matrix. Because they implement the
-//! `InputPin` trait, you can read the state of each key as if it was just
-//! connected to a single input pin, without worrying about the matrix-scanning
-//! that happens under the hood.
+//! `InputPin` trait, you can treat each one like a single input pin, without
+//! worrying about the matrix-scanning that happens under the hood.
 //!
 //! This approach was inspired by the
 //! [shift-register-driver](https://github.com/JoshMcguigan/shift-register-driver)
@@ -42,11 +41,13 @@
 //!
 //! ## Example
 //!
-//! This example uses mock types that implement the `embeddded-hal` traits without using
-//! any real hardware. It will compile and run on your host computer, but it
-//! won't do anything interesting because there are no real buttons to press.
+//! This example uses mock types that implement the `embeddded-hal` traits
+//! without using any real hardware. It will compile and run on your host
+//! computer, but it won't do anything interesting because there are no real
+//! buttons to press.
 //!
-//! See the `example` crate for documentation of the `ExampleKeypad` struct generated here.
+//! See the `example` crate for documentation of the `ExampleKeypad` struct
+//! generated here.
 //!
 //! ```
 //! #![feature(nll)]

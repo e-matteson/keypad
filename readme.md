@@ -1,7 +1,5 @@
 # Keypad
 
-> Platform-agnostic driver for a generic keypad, written in rust.
-
 This driver lets you read the state of any key in a keypad matrix circuit as if
 it was connected to a single input pin. It supports keypads of any size, and any
 embedded platform that implements the
@@ -14,7 +12,7 @@ key to one input pin. However, that won't work if you have more keys than
 available pins. One solution is to use a keypad matrix circuit that lets you
 read from N*M keys using only N+M pins.
 
-[TODO drawing]
+![matrix](https://raw.githubusercontent.com/e-matteson/keypad/ebda159690020e1c731f6ca57d9d8fc797168101/matrix_schem.jpg)
 
 A downside of this approach is that it increases code complexity. Instead of
 reading a single input pin to check if a key is pressed, you need to
@@ -24,9 +22,7 @@ the column high/floating again.
 The purpose of this driver is to use the `embedded-hal` traits to hide that
 complexity. It does this by giving you a set of virtual `KeyInput` pins, each
 of which represent one key in your keypad matrix. Because they implement the
-`InputPin` trait, you can read the state of each key as if it was just
-connected to a single input pin, without worrying about the matrix-scanning that
-happens under the hood.
+`InputPin` trait, you can treat each one like a single input pin, without worrying about the matrix-scanning that happens under the hood.
 
 This approach was inspired by the
 [shift-register-driver](https://github.com/JoshMcguigan/shift-register-driver)
