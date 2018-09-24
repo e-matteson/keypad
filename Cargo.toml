@@ -1,0 +1,9 @@
+[package]
+name = "keypad"
+version = "0.1.0"
+authors = ["e-matteson <e.r.matteson@gmail.com>"]
+
+
+[dependencies.embedded-hal]
+features = ["unproven"]
+version = "0.2.1"
