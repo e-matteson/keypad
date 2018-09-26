@@ -1,8 +1,8 @@
-//! **Platform-agnostic driver for a generic keypad**
+//! **Platform-agnostic driver for keypad matrix circuits**
 //!
 //! This driver lets you read the state of any key in a keypad matrix as if it
 //! was connected to a single input pin. It supports keypads of any size, and any
-//! embedded platform that implements the
+//! embedded platform that implements the Rust
 //! [embedded-hal](https://crates.io/crates/embedded-hal) traits.
 //!
 //! ## Motivation
@@ -31,8 +31,7 @@
 //!
 //! This approach was inspired by the
 //! [shift-register-driver](https://github.com/JoshMcguigan/shift-register-driver)
-//! crate, which uses virtual output pins to simplify the use of a shift
-//! register.
+//! crate, which uses virtual output pins to control a shift register.
 //!
 //! ## Limitations
 //!
@@ -65,7 +64,6 @@
 //! // Define the struct that represents your keypad matrix circuit,
 //! // picking the row and column pin numbers.
 //! keypad_struct!{
-//!     #[doc="My super-special keypad."]
 //!     pub struct ExampleKeypad {
 //!         rows: (
 //!             mock_hal::gpioa::PA0<Input<PullUp>>,
@@ -112,7 +110,7 @@
 //!     let first_key = &keys[0][0];
 //!     println!("Is first key pressed? {}\n", first_key.is_low());
 //!
-//!     // Print a table showing whether each keys is pressed.
+//!     // Print a table showing whether each key is pressed.
 //!
 //!     for (row_index, row) in keys.iter().enumerate() {
 //!         print!("row {}: ", row_index);
