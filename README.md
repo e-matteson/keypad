@@ -1,23 +1,27 @@
 [![Latest version](https://img.shields.io/crates/v/keypad.svg)](https://crates.io/crates/keypad)
 [![Documentation](https://docs.rs/keypad/badge.svg)](https://docs.rs/keypad)
 
-# Keypad
+# keypad
 
-This driver lets you read the state of any key in a keypad matrix circuit as if
-it was connected to a single input pin. It supports keypads of any size, and any
+**Platform-agnostic driver for a generic keypad**
+
+This driver lets you read the state of any key in a keypad matrix as if it
+was connected to a single input pin. It supports keypads of any size, and any
 embedded platform that implements the
 [embedded-hal](https://crates.io/crates/embedded-hal) traits.
 
-## Motivation
+### Motivation
 
-The simplest way to read keypresses with a microcontroller is to connect each
-key to one input pin. However, that won't work if you have more keys than
-available pins. One solution is to use a keypad matrix circuit, because a matrix
-with N rows and M columns lets you read from N*M keys using only N+M pins.
+The simplest way to read keypresses with a microcontroller is to connect
+each key to one input pin. However, that won't work if you have more keys
+than available pins. One solution is to use a keypad matrix circuit that
+lets you read from N*M keys using only N+M pins.
 
 ![matrix](https://raw.githubusercontent.com/e-matteson/keypad/58d087473246cdbf232b2831f9fc18c0a7a29fc7/matrix_schem.png)
 
-In this example, each row is an input pin with a pullup resistor, and each column is an open-drain output. You read the state of a particular key by driving its column pin low and reading its row pin.
+In this circuit, each row is an input pin with a pullup resistor, and each
+column is an open-drain output pin. You read the state of a particular key by
+driving its column pin low and reading its row pin.
 
 A downside of this approach is that it increases code complexity. Instead of
 reading a single input pin to check if a key is pressed, you need to
@@ -27,14 +31,15 @@ the column high/floating again.
 The purpose of this driver is to use the `embedded-hal` traits to hide that
 complexity. It does this by giving you a set of virtual `KeyInput` pins, each
 of which represent one key in your keypad matrix. Because they implement the
-`InputPin` trait, you can treat each one like a single input pin, without worrying about the matrix-scanning that happens under the hood.
+`InputPin` trait, you can treat each one like a single input pin, without
+worrying about the matrix-scanning that happens under the hood.
 
 This approach was inspired by the
 [shift-register-driver](https://github.com/JoshMcguigan/shift-register-driver)
 crate, which uses virtual output pins to simplify the use of a shift
 register.
 
-## Limitations
+### Limitations
 
 - Reading the key state is not reentrant.
 
@@ -43,28 +48,29 @@ possible. That's a tradeoff that comes from treating each key
 as an independent input.
 
 
-## Example
+### Example
 
-This example uses mock types that implement the `embeddded-hal` traits without using
-any real hardware. It will compile and run on your host computer, but it
-won't do anything interesting because there are no real buttons to press.
+This example uses mock types that implement the `embeddded-hal` traits
+without using any real hardware. It will compile and run on your host
+computer, but it won't do anything interesting because there are no real
+buttons to press.
 
-For an example that runs on an actual microcontroller, see [keypad-bluepill-example](https://github.com/e-matteson/keypad-bluepill-example).
+For an example that runs on an actual microcontroller, see
+[keypad-bluepill-example](https://github.com/e-matteson/keypad-bluepill-example).
 
-
-``` rust
+```rust
 #![feature(nll)]
 #[macro_use]
 extern crate keypad;
-extern crate core;
 
 use keypad::embedded_hal::digital::InputPin;
 use keypad::mock_hal::{self, GpioExt, Input, OpenDrain, Output, PullUp, GPIOA};
 
-// Define the struct that represents your keypad matrix circuit, picking the
-// row and column pin numbers.
+// Define the struct that represents your keypad matrix circuit,
+// picking the row and column pin numbers.
 keypad_struct!{
-    struct ExampleKeypad {
+    #[doc="My super-special keypad."]
+    pub struct ExampleKeypad {
         rows: (
             mock_hal::gpioa::PA0<Input<PullUp>>,
             mock_hal::gpioa::PA1<Input<PullUp>>,
@@ -101,15 +107,16 @@ fn main() {
         ),
     });
 
-    // Create a 2d array of virtual `KeyboardInput` pins, each representing 1 key in the
-    // matrix. They implement the `InputPin` trait and can (mostly) be used
-    // just like any other embedded-hal input pins.
+    // Create a 2d array of virtual `KeyboardInput` pins, each
+    // representing 1 key in the matrix. They implement the
+    // `InputPin` trait and can be used like other embedded-hal
+    // input pins.
     let keys = keypad.decompose();
 
     let first_key = &keys[0][0];
     println!("Is first key pressed? {}\n", first_key.is_low());
 
-    // Print a table of which keys are pressed.
+    // Print a table showing whether each keys is pressed.
 
     for (row_index, row) in keys.iter().enumerate() {
         print!("row {}: ", row_index);
@@ -125,7 +132,11 @@ fn main() {
 }
 ```
 
-## License
+
+Current version: 0.1.3
+
+
+### License
 
 Licensed under either of
 

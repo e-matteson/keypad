@@ -50,8 +50,8 @@
 //! computer, but it won't do anything interesting because there are no real
 //! buttons to press.
 //!
-//! See the `example` crate for documentation of the `ExampleKeypad` struct
-//! generated here.
+//! For an example that runs on an actual microcontroller, see
+//! [keypad-bluepill-example](https://github.com/e-matteson/keypad-bluepill-example).
 //!
 //! ```
 //! # #![cfg_attr(docs_rs_workaround, feature(macro_vis_matcher))]
