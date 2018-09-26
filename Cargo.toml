@@ -15,6 +15,9 @@ readme="readme.md"
 features = ["unproven"]
 version = "0.2.1"
 
-[[bin]]
-name = "example"
-doc = true
+[features]
+example_generated = []
+
+[package.metadata.docs.rs]
+features = [ "example_generated" ]
+rustdoc-args = ["--cfg", "docs_rs_workaround"]

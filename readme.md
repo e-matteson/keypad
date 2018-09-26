@@ -12,8 +12,8 @@ embedded platform that implements the
 
 The simplest way to read keypresses with a microcontroller is to connect each
 key to one input pin. However, that won't work if you have more keys than
-available pins. One solution is to use a keypad matrix circuit that lets you
-read from N*M keys using only N+M pins.
+available pins. One solution is to use a keypad matrix circuit, because a matrix
+with N rows and M columns lets you read from N*M keys using only N+M pins.
 
 ![matrix](https://raw.githubusercontent.com/e-matteson/keypad/58d087473246cdbf232b2831f9fc18c0a7a29fc7/matrix_schem.png)
 

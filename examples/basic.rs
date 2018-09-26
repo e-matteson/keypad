@@ -4,11 +4,9 @@
 //! any real hardware. It will compile and run on your host computer, but it
 //! won't do anything interesting because there are no real buttons to press.
 
-#![feature(macro_vis_matcher)]
 #![feature(nll)]
 #[macro_use]
 extern crate keypad;
-extern crate core;
 
 use keypad::embedded_hal::digital::InputPin;
 use keypad::mock_hal::{self, GpioExt, Input, OpenDrain, Output, PullUp, GPIOA};
@@ -19,7 +17,6 @@ use keypad::mock_hal::{self, GpioExt, Input, OpenDrain, Output, PullUp, GPIOA};
 // pins. You can select the modes (PullUp/Floating/OpenDrain/PushPull) to suit
 // your circuit.
 keypad_struct!{
-
     pub struct ExampleKeypad {
         rows: (
             mock_hal::gpioa::PA0<Input<PullUp>>,
