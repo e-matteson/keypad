@@ -26,12 +26,12 @@
 //! The purpose of this driver is to use the `embedded-hal` traits to hide that
 //! complexity. It does this by giving you a set of virtual `KeyInput` pins, each
 //! of which represent one key in your keypad matrix. Because they implement the
-//! `InputPin` trait, you can treat each one like a single input pin, without
-//! worrying about the matrix-scanning that happens under the hood.
-//!
-//! This approach was inspired by the
+//! `InputPin` trait, you can treat each one like a normal input pin - even
+//! though the driver is secretly scanning the matrix for you whenever you read
+//! from it. This approach was inspired by the
 //! [shift-register-driver](https://github.com/JoshMcguigan/shift-register-driver)
-//! crate, which uses virtual output pins to control a shift register.
+//! crate, which lets you control a shift register through virtual output pins.
+//!
 //!
 //! ## Limitations
 //!
@@ -164,13 +164,13 @@ use embedded_hal::digital::{InputPin, OutputPin};
 /// 2) Reading from a `KeypadInput` is slower than reading from a real input
 /// pin, because it needs to change the output pin state twice for every read.
 pub struct KeypadInput<'a> {
-    row: &'a InputPin,
-    col: &'a RefCell<OutputPin>,
+    row: &'a dyn InputPin,
+    col: &'a RefCell<dyn OutputPin>,
 }
 
 impl<'a> KeypadInput<'a> {
     /// Create a new `KeypadInput`. For use in macros.
-    pub fn new(row: &'a InputPin, col: &'a RefCell<OutputPin>) -> Self {
+    pub fn new(row: &'a dyn InputPin, col: &'a RefCell<dyn OutputPin>) -> Self {
         Self { row, col }
     }
 }
