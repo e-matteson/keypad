@@ -58,7 +58,7 @@
 //! #[macro_use]
 //! extern crate keypad;
 //!
-//! use keypad::embedded_hal::digital::InputPin;
+//! use keypad::embedded_hal::digital::v2::InputPin;
 //! use keypad::mock_hal::{self, GpioExt, Input, OpenDrain, Output, PullUp, GPIOA};
 //!
 //! // Define the struct that represents your keypad matrix circuit,
@@ -108,14 +108,14 @@
 //!     let keys = keypad.decompose();
 //!
 //!     let first_key = &keys[0][0];
-//!     println!("Is first key pressed? {}\n", first_key.is_low());
+//!     println!("Is first key pressed? {}\n", first_key.is_low().unwrap());
 //!
 //!     // Print a table showing whether each key is pressed.
 //!
 //!     for (row_index, row) in keys.iter().enumerate() {
 //!         print!("row {}: ", row_index);
 //!         for key in row.iter() {
-//!             let is_pressed = if key.is_low() { 1 } else { 0 };
+//!             let is_pressed = if key.is_low().unwrap() { 1 } else { 0 };
 //!             print!(" {} ", is_pressed);
 //!         }
 //!         println!();
@@ -143,7 +143,7 @@ pub extern crate core as _core;
 pub mod mock_hal;
 
 use core::cell::RefCell;
-use embedded_hal::digital::{InputPin, OutputPin};
+use embedded_hal::digital::v2::{InputPin, OutputPin};
 
 /// A virtual `embedded-hal` input pin representing one key of the keypad.
 ///
@@ -163,30 +163,34 @@ use embedded_hal::digital::{InputPin, OutputPin};
 ///
 /// 2) Reading from a `KeypadInput` is slower than reading from a real input
 /// pin, because it needs to change the output pin state twice for every read.
-pub struct KeypadInput<'a> {
-    row: &'a InputPin,
-    col: &'a RefCell<OutputPin>,
+pub struct KeypadInput<'a, E> {
+    row: &'a dyn InputPin<Error = E>,
+    col: &'a RefCell<dyn OutputPin<Error = E>>,
 }
 
-impl<'a> KeypadInput<'a> {
+impl<'a, E> KeypadInput<'a, E> {
     /// Create a new `KeypadInput`. For use in macros.
-    pub fn new(row: &'a InputPin, col: &'a RefCell<OutputPin>) -> Self {
+    pub fn new(
+        row: &'a dyn InputPin<Error = E>,
+        col: &'a RefCell<dyn OutputPin<Error = E>>,
+    ) -> Self {
         Self { row, col }
     }
 }
 
-impl<'a> InputPin for KeypadInput<'a> {
+impl<'a, E> InputPin for KeypadInput<'a, E> {
+    type Error = E;
     /// Read the state of the key at this row and column. Not reentrant.
-    fn is_high(&self) -> bool {
-        !self.is_low()
+    fn is_high(&self) -> Result<bool, E> {
+        Ok(!self.is_low()?)
     }
 
     /// Read the state of the key at this row and column. Not reentrant.
-    fn is_low(&self) -> bool {
-        self.col.borrow_mut().set_low();
-        let out = self.row.is_low();
-        self.col.borrow_mut().set_high();
-        out
+    fn is_low(&self) -> Result<bool, E> {
+        self.col.borrow_mut().set_low()?;
+        let out = self.row.is_low()?;
+        self.col.borrow_mut().set_high()?;
+        Ok(out)
     }
 }
 
@@ -213,7 +217,7 @@ impl<'a> InputPin for KeypadInput<'a> {
 ///
 /// use keypad::mock_hal::{self, Input, OpenDrain, Output, PullUp};
 ///
-/// keypad_struct!{
+/// keypad_struct! {
 ///     #[doc="My super-special keypad."]
 ///     pub struct ExampleKeypad {
 ///         rows: (
@@ -278,13 +282,13 @@ macro_rules! keypad_struct {
             {
 
                 let rows: [
-                    &$crate::embedded_hal::digital::InputPin;
+                    &dyn $crate::embedded_hal::digital::v2::InputPin<Error = core::convert::Infallible>;
                     keypad_struct!(@count $($row_type)*)
                 ]
                     = keypad_struct!(@tuple  self.rows,  ($($row_type),*));
 
                 let columns: [
-                    &$crate::_core::cell::RefCell<$crate::embedded_hal::digital::OutputPin>;
+                    &$crate::_core::cell::RefCell<dyn $crate::embedded_hal::digital::v2::OutputPin<Error = core::convert::Infallible>>;
                     keypad_struct!(@count $($col_type)*)
                 ]
                     = keypad_struct!(@tuple  self.columns,  ($($col_type),*));
@@ -329,7 +333,7 @@ macro_rules! keypad_struct {
         [keypad_struct!(@element_type) ; keypad_struct!(@count $($col)*)]
     };
     (@element_type ) => {
-        $crate::KeypadInput<'a>
+        $crate::KeypadInput<'a, core::convert::Infallible>
     };
     (@count $($token_trees:tt)*) => {
         0usize $(+ keypad_struct!(@replace $token_trees 1usize))*

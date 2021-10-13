@@ -61,7 +61,7 @@ macro_rules! gpio {
         pub mod $port {
             use super::{State, Input,Output, Floating, PushPull, OpenDrain, GpioExt, PullUp, $PORT};
             use core::marker::PhantomData;
-            use embedded_hal::digital::{InputPin, OutputPin};
+            use embedded_hal::digital::v2::{InputPin, OutputPin};
 
             /// The pins of a mock GPIO port
             #[derive(Debug)]
@@ -153,37 +153,41 @@ macro_rules! gpio {
                 }
 
                 impl OutputPin for $Pin<Output<PushPull>> {
+                    type Error = core::convert::Infallible;
                     /// Drive the mock pin high.
-                    fn set_high(&mut self) {
-                        self.state = State::High;
+                    fn set_high(&mut self) -> Result<(), Self::Error> {
+                        Ok(self.state = State::High)
                     }
                     /// Drive the mock pin low.
-                    fn set_low(&mut self) {
-                        self.state = State::Low;
+                    fn set_low(&mut self) -> Result<(), Self::Error> {
+                        Ok(self.state = State::Low)
                     }
                 }
 
                 impl OutputPin for $Pin<Output<OpenDrain>> {
+                    type Error = core::convert::Infallible;
                     /// Leave the mock pin floating.
-                    fn set_high(&mut self) {
-                        self.state = State::Float;
+                    fn set_high(&mut self) -> Result<(), Self::Error> {
+                        Ok(self.state = State::Float)
                     }
+
                     /// Drive the mock pin low.
-                    fn set_low(&mut self) {
-                        self.state = State::Low;
+                    fn set_low(&mut self) -> Result<(), Self::Error> {
+                        Ok(self.state = State::Low)
                     }
                 }
 
                 impl<MODE> InputPin for $Pin<Input<MODE>> {
+                    type Error = core::convert::Infallible;
                     /// Is the mock input pin high? Panic if it's floating.
-                    fn is_high(&self) -> bool {
-                        !self.is_low()
+                    fn is_high(&self) -> Result<bool,Self::Error> {
+                        Ok(!self.is_low()?)
                     }
                     /// Is the mock input pin low? Panic if it's floating.
-                    fn is_low(&self) -> bool {
+                    fn is_low(&self) -> Result<bool, Self::Error> {
                         match self.state {
-                            State::Low => true,
-                            State::High => false,
+                            State::Low => Ok(true),
+                            State::High => Ok(false),
                             State::Float => {
                                 panic!("Tried to read a floating input, value is non-deterministic!")
                             }

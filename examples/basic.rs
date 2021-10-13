@@ -4,19 +4,16 @@
 //! any real hardware. It will compile and run on your host computer, but it
 //! won't do anything interesting because there are no real buttons to press.
 
-#![feature(nll)]
-#[macro_use]
-extern crate keypad;
-
-use keypad::embedded_hal::digital::InputPin;
+use embedded_hal::digital::v2::InputPin;
 use keypad::mock_hal::{self, GpioExt, Input, OpenDrain, Output, PullUp, GPIOA};
+use keypad::{keypad_new, keypad_struct};
 
 // Define the struct that represents your keypad matrix. Give the specific pins
 // that will be used for the rows and columns of your matrix - each pin number
 // has a unique type. Rows must be input pins, and columns must be output
 // pins. You can select the modes (PullUp/Floating/OpenDrain/PushPull) to suit
 // your circuit.
-keypad_struct!{
+keypad_struct! {
     pub struct ExampleKeypad {
         rows: (
             mock_hal::gpioa::PA0<Input<PullUp>>,
@@ -61,7 +58,7 @@ fn main() {
     let keys = keypad.decompose();
 
     let first_key = &keys[0][0];
-    println!("Is first key pressed? {}\n", first_key.is_low());
+    println!("Is first key pressed? {:?}\n", first_key.is_low());
 
     // Print a table of which keys are pressed. This is a boring example because
     // we have no way to press the mock keys and they'll always stay unpressed.
@@ -69,7 +66,7 @@ fn main() {
     for (row_index, row) in keys.iter().enumerate() {
         print!("row {}: ", row_index);
         for key in row.iter() {
-            let is_pressed = if key.is_low() { 1 } else { 0 };
+            let is_pressed = if key.is_low().unwrap() { 1 } else { 0 };
             print!(" {} ", is_pressed);
         }
         println!();

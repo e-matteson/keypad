@@ -9,7 +9,13 @@ description = "Platform-agnostic driver for keypad matrix circuits"
 homepage = "https://github.com/e-matteson/keypad"
 repository = "https://github.com/e-matteson/keypad"
 documentation = "https://docs.rs/keypad"
-readme="README.md"
+readme = "README.md"
+
+edition = "2018"
+
+[package.metadata.docs.rs]
+features = ["example_generated"]
+rustdoc-args = ["--cfg", "docs_rs_workaround"]
 
 [dependencies.embedded-hal]
 features = ["unproven"]
@@ -17,7 +23,3 @@ version = "0.2.1"
 
 [features]
 example_generated = []
-
-[package.metadata.docs.rs]
-features = [ "example_generated" ]
-rustdoc-args = ["--cfg", "docs_rs_workaround"]
