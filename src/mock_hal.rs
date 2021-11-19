@@ -61,7 +61,7 @@ macro_rules! gpio {
         pub mod $port {
             use super::{State, Input,Output, Floating, PushPull, OpenDrain, GpioExt, PullUp, $PORT};
             use core::marker::PhantomData;
-            use embedded_hal::digital::{InputPin, OutputPin};
+            use embedded_hal::digital::v2::{InputPin, OutputPin};
 
             /// The pins of a mock GPIO port
             #[derive(Debug)]
@@ -153,37 +153,45 @@ macro_rules! gpio {
                 }
 
                 impl OutputPin for $Pin<Output<PushPull>> {
+                    type Error = ();
                     /// Drive the mock pin high.
-                    fn set_high(&mut self) {
+                    fn set_high(&mut self) -> Result<(), Self::Error> {
                         self.state = State::High;
+                        Ok(())
                     }
                     /// Drive the mock pin low.
-                    fn set_low(&mut self) {
+                    fn set_low(&mut self) -> Result<(), Self::Error> {
                         self.state = State::Low;
+                        Ok(())
                     }
                 }
 
                 impl OutputPin for $Pin<Output<OpenDrain>> {
+                    type Error = ();
                     /// Leave the mock pin floating.
-                    fn set_high(&mut self) {
+                    fn set_high(&mut self) -> Result<(), Self::Error> {
                         self.state = State::Float;
+                        Ok(())
                     }
                     /// Drive the mock pin low.
-                    fn set_low(&mut self) {
+                    fn set_low(&mut self) -> Result<(), Self::Error> {
                         self.state = State::Low;
+                        Ok(())
                     }
                 }
 
                 impl<MODE> InputPin for $Pin<Input<MODE>> {
+                    type Error = ();
                     /// Is the mock input pin high? Panic if it's floating.
-                    fn is_high(&self) -> bool {
-                        !self.is_low()
+                    fn is_high(&self) -> Result<bool, Self::Error> {
+                        Ok(!self.is_low()?)
                     }
                     /// Is the mock input pin low? Panic if it's floating.
-                    fn is_low(&self) -> bool {
+                    // TODO return error instead of panicking
+                    fn is_low(&self) -> Result<bool, Self::Error> {
                         match self.state {
-                            State::Low => true,
-                            State::High => false,
+                            State::Low => Ok(true),
+                            State::High => Ok(false),
                             State::Float => {
                                 panic!("Tried to read a floating input, value is non-deterministic!")
                             }

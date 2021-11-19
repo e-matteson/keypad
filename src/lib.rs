@@ -1,3 +1,6 @@
+// TODO document error type parameter
+// TODO fix KeyboardInput etc. names
+
 //! **Platform-agnostic driver for keypad matrix circuits**
 //!
 //! This driver lets you read the state of any key in a keypad matrix as if it
@@ -54,17 +57,18 @@
 //!
 //! ```
 //! # #![cfg_attr(docs_rs_workaround, feature(macro_vis_matcher))]
-//! #![feature(nll)]
 //! #[macro_use]
 //! extern crate keypad;
 //!
-//! use keypad::embedded_hal::digital::InputPin;
+//! use keypad::embedded_hal::digital::v2::InputPin;
 //! use keypad::mock_hal::{self, GpioExt, Input, OpenDrain, Output, PullUp, GPIOA};
+//!
+//! type ErrorType = ();
 //!
 //! // Define the struct that represents your keypad matrix circuit,
 //! // picking the row and column pin numbers.
 //! keypad_struct!{
-//!     pub struct ExampleKeypad {
+//!     pub struct ExampleKeypad<ErrorType> {
 //!         rows: (
 //!             mock_hal::gpioa::PA0<Input<PullUp>>,
 //!             mock_hal::gpioa::PA1<Input<PullUp>>,
@@ -108,14 +112,14 @@
 //!     let keys = keypad.decompose();
 //!
 //!     let first_key = &keys[0][0];
-//!     println!("Is first key pressed? {}\n", first_key.is_low());
+//!     println!("Is first key pressed? {}\n", first_key.is_low().unwrap());
 //!
 //!     // Print a table showing whether each key is pressed.
 //!
 //!     for (row_index, row) in keys.iter().enumerate() {
 //!         print!("row {}: ", row_index);
 //!         for key in row.iter() {
-//!             let is_pressed = if key.is_low() { 1 } else { 0 };
+//!             let is_pressed = if key.is_low().unwrap() { 1 } else { 0 };
 //!             print!(" {} ", is_pressed);
 //!         }
 //!         println!();
@@ -143,7 +147,7 @@ pub extern crate core as _core;
 pub mod mock_hal;
 
 use core::cell::RefCell;
-use embedded_hal::digital::{InputPin, OutputPin};
+use embedded_hal::digital::v2::{InputPin, OutputPin};
 
 /// A virtual `embedded-hal` input pin representing one key of the keypad.
 ///
@@ -163,30 +167,36 @@ use embedded_hal::digital::{InputPin, OutputPin};
 ///
 /// 2) Reading from a `KeypadInput` is slower than reading from a real input
 /// pin, because it needs to change the output pin state twice for every read.
-pub struct KeypadInput<'a> {
-    row: &'a dyn InputPin,
-    col: &'a RefCell<dyn OutputPin>,
+// TODO doc that error types must be the same - reading could fail because  setting failed
+pub struct KeypadInput<'a, T> {
+    row: &'a dyn InputPin<Error = T>,
+    col: &'a RefCell<dyn OutputPin<Error = T>>,
 }
 
-impl<'a> KeypadInput<'a> {
+impl<'a, T> KeypadInput<'a, T> {
     /// Create a new `KeypadInput`. For use in macros.
-    pub fn new(row: &'a dyn InputPin, col: &'a RefCell<dyn OutputPin>) -> Self {
+    pub fn new(
+        row: &'a dyn InputPin<Error = T>,
+        col: &'a RefCell<dyn OutputPin<Error = T>>,
+    ) -> Self {
         Self { row, col }
     }
 }
 
-impl<'a> InputPin for KeypadInput<'a> {
+impl<'a, T> InputPin for KeypadInput<'a, T> {
+    type Error = T;
+
     /// Read the state of the key at this row and column. Not reentrant.
-    fn is_high(&self) -> bool {
-        !self.is_low()
+    fn is_high(&self) -> Result<bool, Self::Error> {
+        Ok(!self.is_low()?)
     }
 
     /// Read the state of the key at this row and column. Not reentrant.
-    fn is_low(&self) -> bool {
-        self.col.borrow_mut().set_low();
-        let out = self.row.is_low();
-        self.col.borrow_mut().set_high();
-        out
+    fn is_low(&self) -> Result<bool, Self::Error> {
+        self.col.borrow_mut().set_low()?;
+        let result = self.row.is_low();
+        self.col.borrow_mut().set_high()?;
+        result
     }
 }
 
@@ -213,9 +223,11 @@ impl<'a> InputPin for KeypadInput<'a> {
 ///
 /// use keypad::mock_hal::{self, Input, OpenDrain, Output, PullUp};
 ///
+/// type ErrorType = ();
+///
 /// keypad_struct!{
 ///     #[doc="My super-special keypad."]
-///     pub struct ExampleKeypad {
+///     pub struct ExampleKeypad<ErrorType> {
 ///         rows: (
 ///             mock_hal::gpioa::PA0<Input<PullUp>>,
 ///             mock_hal::gpioa::PA1<Input<PullUp>>,
@@ -249,7 +261,7 @@ impl<'a> InputPin for KeypadInput<'a> {
 #[macro_export]
 macro_rules! keypad_struct {
     (
-        $(#[$attributes:meta])* $visibility:vis struct $struct_name:ident {
+        $(#[$attributes:meta])* $visibility:vis struct $struct_name:ident <$error_type:ty> {
             rows: ( $($row_type:ty),* $(,)* ),
             columns: ( $($col_type:ty),* $(,)* ),
         }
@@ -274,17 +286,18 @@ macro_rules! keypad_struct {
                     @array2d_type
                         ($($row_type),*)
                         ($($crate::_core::cell::RefCell<$col_type>),*)
+                        ($crate::KeypadInput<'a, $error_type>)
                 )
             {
 
                 let rows: [
-                    &$crate::embedded_hal::digital::InputPin;
+                    &$crate::embedded_hal::digital::v2::InputPin<Error=$error_type>;
                     keypad_struct!(@count $($row_type)*)
                 ]
                     = keypad_struct!(@tuple  self.rows,  ($($row_type),*));
 
                 let columns: [
-                    &$crate::_core::cell::RefCell<$crate::embedded_hal::digital::OutputPin>;
+                    &$crate::_core::cell::RefCell<$crate::embedded_hal::digital::v2::OutputPin<Error=$error_type>>;
                     keypad_struct!(@count $($col_type)*)
                 ]
                     = keypad_struct!(@tuple  self.columns,  ($($col_type),*));
@@ -293,16 +306,24 @@ macro_rules! keypad_struct {
                     @array2d_type
                         ($($row_type),*)
                         ($($crate::_core::cell::RefCell<$col_type>),*)
+                        ($crate::_core::mem::MaybeUninit<$crate::KeypadInput<'a, $error_type>>)
                 ) = unsafe {
-                    $crate::_core::mem::uninitialized()
+                    // TODO is this right?
+                    $crate::_core::mem::MaybeUninit::uninit().assume_init()
                 };
 
                 for r in 0..rows.len() {
                     for c in 0..columns.len() {
-                        out[r][c] = $crate::KeypadInput::new(rows[r], columns[c]);
+                        out[r][c].write($crate::KeypadInput::new(rows[r], columns[c]));
                     }
                 }
-                out
+                unsafe { $crate::_core::mem::transmute::<_,
+                                                         keypad_struct!(
+                                                             @array2d_type
+                                                                 ($($row_type),*)
+                                                                 ($($crate::_core::cell::RefCell<$col_type>),*)
+                                                                 ($crate::KeypadInput<'a, $error_type>)
+                                                         )>(out) }
             }
 
             /// Give back ownership of the row and column pins.
@@ -322,14 +343,20 @@ macro_rules! keypad_struct {
             }
         }
     };
-    (@array2d_type ($($row:ty),*) ($($col:ty),*) ) => {
-        [keypad_struct!(@array1d_type ($($col),*)) ; keypad_struct!(@count $($row)*)]
+    // (@array2d_type ($($row:ty),*) ($($col:ty),*) $error_type:ty) => {
+    //     [keypad_struct!(@array1d_type ($($col),*) $error_type) ; keypad_struct!(@count $($row)*)]
+    // };
+    // (@array1d_type ($($col:ty),*) $error_type:ty) => {
+    //     [keypad_struct!(@element_type $error_type) ; keypad_struct!(@count $($col)*)]
+    // };
+    // (@element_type $error_type:ty) => {
+    //     $crate::KeypadInput<'a, $error_type>
+    // };
+    (@array2d_type ($($row:ty),*) ($($col:ty),*) $element_type:ty) => {
+        [keypad_struct!(@array1d_type ($($col),*) $element_type) ; keypad_struct!(@count $($row)*)]
     };
-    (@array1d_type ($($col:ty),*)) => {
-        [keypad_struct!(@element_type) ; keypad_struct!(@count $($col)*)]
-    };
-    (@element_type ) => {
-        $crate::KeypadInput<'a>
+    (@array1d_type ($($col:ty),*) $element_type:ty) => {
+        [$element_type ; keypad_struct!(@count $($col)*)]
     };
     (@count $($token_trees:tt)*) => {
         0usize $(+ keypad_struct!(@replace $token_trees 1usize))*
@@ -378,8 +405,11 @@ macro_rules! keypad_struct {
 /// # extern crate keypad;
 /// # use keypad::mock_hal::{self, Input, OpenDrain, Output, PullUp};
 /// # use keypad::mock_hal::{GpioExt, GPIOA};
+/// #
+/// # type ErrorType = ();
+/// #
 /// # keypad_struct!{
-/// #     pub struct ExampleKeypad {
+/// #     pub struct ExampleKeypad<ErrorType> {
 /// #         rows: (
 /// #             mock_hal::gpioa::PA0<Input<PullUp>>,
 /// #             mock_hal::gpioa::PA1<Input<PullUp>>,

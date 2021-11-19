@@ -15,6 +15,8 @@ readme="README.md"
 features = ["unproven"]
 version = "0.2.1"
 
+# TODO use embedded-hal-mock, write actual test cases
+
 [features]
 example_generated = []
 
