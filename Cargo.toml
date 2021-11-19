@@ -11,9 +11,13 @@ repository = "https://github.com/e-matteson/keypad"
 documentation = "https://docs.rs/keypad"
 readme="README.md"
 
+# [dependencies.embedded-hal]
+# features = ["unproven"]
+# version = "0.2.1"
+
 [dependencies.embedded-hal]
 features = ["unproven"]
-version = "0.2.1"
+version = "0.2.6"
 
 # TODO use embedded-hal-mock, write actual test cases
 
