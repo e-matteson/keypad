@@ -4,6 +4,7 @@
 //! any real hardware. It will compile and run on your host computer, but it
 //! won't do anything interesting because there are no real buttons to press.
 
+use core::convert::Infallible;
 use embedded_hal::digital::v2::InputPin;
 use keypad::mock_hal::{self, GpioExt, Input, OpenDrain, Output, PullUp, GPIOA};
 use keypad::{keypad_new, keypad_struct};
@@ -14,7 +15,7 @@ use keypad::{keypad_new, keypad_struct};
 // pins. You can select the modes (PullUp/Floating/OpenDrain/PushPull) to suit
 // your circuit.
 keypad_struct! {
-    pub struct ExampleKeypad {
+    pub struct ExampleKeypad<Error = Infallible> {
         rows: (
             mock_hal::gpioa::PA0<Input<PullUp>>,
             mock_hal::gpioa::PA1<Input<PullUp>>,

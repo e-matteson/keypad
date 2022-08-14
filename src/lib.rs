@@ -57,13 +57,14 @@
 //! #[macro_use]
 //! extern crate keypad;
 //!
+//! use core::convert::Infallible;
 //! use keypad::embedded_hal::digital::v2::InputPin;
 //! use keypad::mock_hal::{self, GpioExt, Input, OpenDrain, Output, PullUp, GPIOA};
 //!
 //! // Define the struct that represents your keypad matrix circuit,
 //! // picking the row and column pin numbers.
 //! keypad_struct!{
-//!     pub struct ExampleKeypad {
+//!     pub struct ExampleKeypad<Error = Infallible>{
 //!         rows: (
 //!             mock_hal::gpioa::PA0<Input<PullUp>>,
 //!             mock_hal::gpioa::PA1<Input<PullUp>>,
@@ -196,9 +197,12 @@ impl<'a, E> InputPin for KeypadInput<'a, E> {
 /// Define a new struct representing your keypad matrix circuit.
 ///
 /// Every pin has a unique type, depending on its pin number and its current
-/// mode. This struct is where you specify which pin types will be used in the rows
-/// and columns of the keypad matrix. All the row pins must implement the
+/// mode. This struct is where you specify which pin types will be used in the
+/// rows and columns of the keypad matrix. All the row pins must implement the
 /// `InputPin` trait, and the column pins must implement the `OutputPin` trait.
+/// The associated `Error` type of the `InputPin` and `OutputPin` traits must be
+/// the same for every row and column pin, and you must specify it after your
+/// struct name with `<Error = ...>`
 ///
 /// You can specify the visibility of the struct (eg. `pub`) as usual, and add
 /// doc comments using the `#[doc="..."]` attribute.
@@ -215,10 +219,11 @@ impl<'a, E> InputPin for KeypadInput<'a, E> {
 /// extern crate keypad;
 ///
 /// use keypad::mock_hal::{self, Input, OpenDrain, Output, PullUp};
+/// use core::convert::Infallible;
 ///
 /// keypad_struct! {
 ///     #[doc="My super-special keypad."]
-///     pub struct ExampleKeypad {
+///     pub struct ExampleKeypad<Error = Infallible> {
 ///         rows: (
 ///             mock_hal::gpioa::PA0<Input<PullUp>>,
 ///             mock_hal::gpioa::PA1<Input<PullUp>>,
@@ -257,6 +262,16 @@ macro_rules! keypad_struct {
             columns: ( $($col_type:ty),* $(,)* ),
         }
     ) => {
+        compile_error!("You must specify the associated `Error` type of the row and column pins'\
+                        `InputPin` and `OutputPin` traits.\n\
+                        Example: `struct MyStruct <Error = Infallible> { ... }`");
+    };
+    (
+        $(#[$attributes:meta])* $visibility:vis struct $struct_name:ident <Error = $error_type:ty> {
+            rows: ( $($row_type:ty),* $(,)* ),
+            columns: ( $($col_type:ty),* $(,)* ),
+        }
+    ) => {
         $(#[$attributes])* $visibility struct $struct_name {
             /// The input pins used for reading each row.
             rows: ($($row_type),* ,),
@@ -275,25 +290,27 @@ macro_rules! keypad_struct {
             $visibility fn decompose<'a>(&'a self) ->
                 keypad_struct!(
                     @array2d_type
+                        $error_type,
                         ($($row_type),*)
                         ($($crate::_core::cell::RefCell<$col_type>),*)
                 )
             {
 
                 let rows: [
-                    &dyn $crate::embedded_hal::digital::v2::InputPin<Error = core::convert::Infallible>;
+                    &dyn $crate::embedded_hal::digital::v2::InputPin<Error = $error_type>;
                     keypad_struct!(@count $($row_type)*)
                 ]
                     = keypad_struct!(@tuple  self.rows,  ($($row_type),*));
 
                 let columns: [
-                    &$crate::_core::cell::RefCell<dyn $crate::embedded_hal::digital::v2::OutputPin<Error = core::convert::Infallible>>;
+                    &$crate::_core::cell::RefCell<dyn $crate::embedded_hal::digital::v2::OutputPin<Error = $error_type>>;
                     keypad_struct!(@count $($col_type)*)
                 ]
                     = keypad_struct!(@tuple  self.columns,  ($($col_type),*));
 
                 let mut out: keypad_struct!(
                     @array2d_type
+                        $error_type,
                         ($($row_type),*)
                         ($($crate::_core::cell::RefCell<$col_type>),*)
                 ) = unsafe {
@@ -323,14 +340,14 @@ macro_rules! keypad_struct {
             }
         }
     };
-    (@array2d_type ($($row:ty),*) ($($col:ty),*) ) => {
-        [keypad_struct!(@array1d_type ($($col),*)) ; keypad_struct!(@count $($row)*)]
+    (@array2d_type $error_type:ty, ($($row:ty),*) ($($col:ty),*) ) => {
+        [keypad_struct!(@array1d_type $error_type, ($($col),*)) ; keypad_struct!(@count $($row)*)]
     };
-    (@array1d_type ($($col:ty),*)) => {
-        [keypad_struct!(@element_type) ; keypad_struct!(@count $($col)*)]
+    (@array1d_type $error_type:ty, ($($col:ty),*)) => {
+        [keypad_struct!(@element_type $error_type) ; keypad_struct!(@count $($col)*)]
     };
-    (@element_type ) => {
-        $crate::KeypadInput<'a, core::convert::Infallible>
+    (@element_type $error_type:ty) => {
+        $crate::KeypadInput<'a, $error_type>
     };
     (@count $($token_trees:tt)*) => {
         0usize $(+ keypad_struct!(@replace $token_trees 1usize))*
@@ -377,10 +394,11 @@ macro_rules! keypad_struct {
 /// # #![cfg_attr(docs_rs_workaround, feature(macro_vis_matcher))]
 /// # #[macro_use]
 /// # extern crate keypad;
+/// # use core::convert::Infallible;
 /// # use keypad::mock_hal::{self, Input, OpenDrain, Output, PullUp};
 /// # use keypad::mock_hal::{GpioExt, GPIOA};
 /// # keypad_struct!{
-/// #     pub struct ExampleKeypad {
+/// #     pub struct ExampleKeypad<Error = Infallible>{
 /// #         rows: (
 /// #             mock_hal::gpioa::PA0<Input<PullUp>>,
 /// #             mock_hal::gpioa::PA1<Input<PullUp>>,
