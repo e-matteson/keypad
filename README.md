@@ -58,7 +58,6 @@ For an example that runs on an actual microcontroller, see
 [keypad-bluepill-example](https://github.com/e-matteson/keypad-bluepill-example).
 
 ```rust
-#![feature(nll)]
 #[macro_use]
 extern crate keypad;
 

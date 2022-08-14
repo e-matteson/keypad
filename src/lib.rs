@@ -54,7 +54,6 @@
 //!
 //! ```
 //! # #![cfg_attr(docs_rs_workaround, feature(macro_vis_matcher))]
-//! #![feature(nll)]
 //! #[macro_use]
 //! extern crate keypad;
 //!
@@ -313,9 +312,7 @@ macro_rules! keypad_struct {
             ///
             /// This consumes the keypad struct. All references to its virtual
             /// `KeypadInput` pins must have gone out of scope before you try to
-            /// call `.release()`, or it will fail to compile. Opting in to the
-            /// non-lexical lifetimes feature in your project can make that
-            /// simpler.
+            /// call `.release()`, or it will fail to compile.
             ///
             /// The column pins will be returned inside of `RefCell`s (because
             /// macros are hard). You can use `.into_inner()` to extract
