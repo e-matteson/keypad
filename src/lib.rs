@@ -290,7 +290,7 @@ macro_rules! keypad_struct {
             $visibility fn decompose<'a>(&'a self) ->
                 keypad_struct!(
                     @array2d_type
-                        $error_type,
+                        $crate::KeypadInput<'a, $error_type>,
                         ($($row_type),*)
                         ($($crate::_core::cell::RefCell<$col_type>),*)
                 )
@@ -308,21 +308,24 @@ macro_rules! keypad_struct {
                 ]
                     = keypad_struct!(@tuple  self.columns,  ($($col_type),*));
 
+                // Create an uninitialized 2d array of MaybeUninit.
                 let mut out: keypad_struct!(
                     @array2d_type
-                        $error_type,
+                        $crate::_core::mem::MaybeUninit<$crate::KeypadInput<'a, $error_type>>,
                         ($($row_type),*)
                         ($($crate::_core::cell::RefCell<$col_type>),*)
                 ) = unsafe {
-                    $crate::_core::mem::uninitialized()
+                    $crate::_core::mem::MaybeUninit::uninit().assume_init()
                 };
 
+                // Initialize each element with a KeypadInput struct
                 for r in 0..rows.len() {
                     for c in 0..columns.len() {
-                        out[r][c] = $crate::KeypadInput::new(rows[r], columns[c]);
+                        out[r][c].write($crate::KeypadInput::new(rows[r], columns[c]));
                     }
                 }
-                out
+                // All elements are initialized. Transmute the array to the initialized type.
+                unsafe { $crate::_core::mem::transmute::<_, _>(out) }
             }
 
             /// Give back ownership of the row and column pins.
@@ -340,14 +343,11 @@ macro_rules! keypad_struct {
             }
         }
     };
-    (@array2d_type $error_type:ty, ($($row:ty),*) ($($col:ty),*) ) => {
-        [keypad_struct!(@array1d_type $error_type, ($($col),*)) ; keypad_struct!(@count $($row)*)]
+    (@array2d_type $element_type:ty, ($($row:ty),*) ($($col:ty),*) ) => {
+        [keypad_struct!(@array1d_type $element_type, ($($col),*)) ; keypad_struct!(@count $($row)*)]
     };
-    (@array1d_type $error_type:ty, ($($col:ty),*)) => {
-        [keypad_struct!(@element_type $error_type) ; keypad_struct!(@count $($col)*)]
-    };
-    (@element_type $error_type:ty) => {
-        $crate::KeypadInput<'a, $error_type>
+    (@array1d_type $element_type:ty, ($($col:ty),*)) => {
+        [$element_type ; keypad_struct!(@count $($col)*)]
     };
     (@count $($token_trees:tt)*) => {
         0usize $(+ keypad_struct!(@replace $token_trees 1usize))*
