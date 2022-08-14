@@ -53,7 +53,7 @@ fn main() {
         ),
     });
 
-    // Create a 2d array of virtual `KeyboardInput` pins, each representing 1 key in the
+    // Create a 2d array of virtual `KeypadInput` pins, each representing 1 key in the
     // matrix. They implement the `InputPin` trait and can (mostly) be used
     // just like any other embedded-hal input pins.
     let keys = keypad.decompose();

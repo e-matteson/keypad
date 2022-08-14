@@ -104,7 +104,7 @@ fn main() {
         ),
     });
 
-    // Create a 2d array of virtual `KeyboardInput` pins, each
+    // Create a 2d array of virtual `KeypadInput` pins, each
     // representing 1 key in the matrix. They implement the
     // `InputPin` trait and can be used like other embedded-hal
     // input pins.
