@@ -250,10 +250,56 @@ impl<'a, E> InputPin for KeypadInput<'a, E> {
 /// is then immediately initialized in a loop. This is fine as long as there is
 /// not a bug in how the macro calculates the dimensions of the array.
 
-// This macro is complicated because it's stupidly hard to index into a tuple.
-// The only way I found is to construct a different pattern for each field, and
-// then repeatedly destructure the tuple with each pattern. Luckily we're only
-// taking references to the fields, or it would get even harder.
+// There are two reasons why this big, scary macro is necessary:
+//
+// 1) Every single pin has a unique type, and we don't know which pins will be used. We know that
+//    they all implement a certain trait, but that doesn't help much because it doesn't tell us the
+//    size of the type, so we can't directly stick it into the struct. If we could use dynamic
+//    allocation, we could just store pins on the heap as boxed trait objects. But this crate needs
+//    to work on embedded platforms without an allocator! So, we use this macro to generate a
+//    struct containing the exact, concrete pin types the user provides.
+//
+// 2) We don't know how many pins there will be, because the keypad could have any number of rows
+//    and columns. That makes it hard to implement `decompose()`, which needs to iterate over the
+//    row and column pins. We can't store pins in arrays because they all have unique types, but we
+//    can store them in tuples instead. The problem is that you can't actually iterate over a tuple,
+//    and even indexing into arbitrary fields of a tuple using a macro is stupidly hard. The best
+//    approach I could come up with was to repeatedly destructure the tuple with different patterns,
+//    like this:
+//
+//        let tuple = (0, 1, 2);
+//        let array = [
+//            {
+//                let (ref x, ..) = tuple;
+//                x
+//            },
+//            {
+//                let (_, ref x, ..) = tuple;
+//                x
+//            },
+//            {
+//                let (_, _, ref x, ..) = tuple;
+//                x
+//            },
+//        ];
+//        for reference in array.into_iter() {
+//            // ...
+//        }
+//
+// So that's how the `keypad_struct!()` macro iterates over tuples of pins. It counts the length of
+// the tuple (also tricky!), creates patterns with increasing numbers of underscores, and uses them
+// to build up a temporary array of references that it can iterate over. Luckily this code only
+// needs to be run once, in `decompose()`, and not every time we read from a pin.
+//
+// I can't think of any simpler design that still has a convenient API and allows the keypad struct
+// to own the row and column pins. If they weren't owned, the crate would be less convenient to use
+// but could provide a generic Keypad struct like this:
+//
+//     pub struct Keypad<'a, E, const R: usize, const C: usize> {
+//         rows: [&'a dyn InputPin<Error = E>; R],
+//         columns: [&'a RefCell<dyn OutputPin<Error = E>>; C],
+//     }
+//
 #[macro_export]
 macro_rules! keypad_struct {
     (
@@ -449,6 +495,3 @@ macro_rules! keypad_new {
 
 #[cfg(feature = "example_generated")]
 pub mod example_generated;
-
-// #[cfg(feature = "example_generated")]
-// pub use example_generated::ExampleKeypad;
