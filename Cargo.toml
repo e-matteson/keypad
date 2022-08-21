@@ -1,6 +1,6 @@
 [package]
 name = "keypad"
-version = "0.1.4"
+version = "0.2.0"
 authors = ["e-matteson <e.r.matteson@gmail.com>"]
 license = "MIT OR Apache-2.0"
 categories = ["embedded", "hardware-support", "no-std"]
