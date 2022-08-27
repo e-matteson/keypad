@@ -10,8 +10,8 @@ homepage = "https://github.com/e-matteson/keypad"
 repository = "https://github.com/e-matteson/keypad"
 documentation = "https://docs.rs/keypad"
 readme = "README.md"
-
-edition = "2018"
+edition = "2021"
+rust-version = "1.56"
 
 [package.metadata.docs.rs]
 features = ["example_generated"]
