@@ -58,7 +58,6 @@ For an example that runs on an actual microcontroller, see
 [keypad-bluepill-example](https://github.com/e-matteson/keypad-bluepill-example).
 
 ```rust
-#![feature(nll)]
 #[macro_use]
 extern crate keypad;
 
@@ -105,7 +104,7 @@ fn main() {
         ),
     });
 
-    // Create a 2d array of virtual `KeyboardInput` pins, each
+    // Create a 2d array of virtual `KeypadInput` pins, each
     // representing 1 key in the matrix. They implement the
     // `InputPin` trait and can be used like other embedded-hal
     // input pins.

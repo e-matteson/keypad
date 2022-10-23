@@ -54,17 +54,17 @@
 //!
 //! ```
 //! # #![cfg_attr(docs_rs_workaround, feature(macro_vis_matcher))]
-//! #![feature(nll)]
 //! #[macro_use]
 //! extern crate keypad;
 //!
-//! use keypad::embedded_hal::digital::InputPin;
+//! use core::convert::Infallible;
+//! use keypad::embedded_hal::digital::v2::InputPin;
 //! use keypad::mock_hal::{self, GpioExt, Input, OpenDrain, Output, PullUp, GPIOA};
 //!
 //! // Define the struct that represents your keypad matrix circuit,
 //! // picking the row and column pin numbers.
 //! keypad_struct!{
-//!     pub struct ExampleKeypad {
+//!     pub struct ExampleKeypad<Error = Infallible>{
 //!         rows: (
 //!             mock_hal::gpioa::PA0<Input<PullUp>>,
 //!             mock_hal::gpioa::PA1<Input<PullUp>>,
@@ -101,21 +101,21 @@
 //!         ),
 //!     });
 //!
-//!     // Create a 2d array of virtual `KeyboardInput` pins, each
+//!     // Create a 2d array of virtual `KeypadInput` pins, each
 //!     // representing 1 key in the matrix. They implement the
 //!     // `InputPin` trait and can be used like other embedded-hal
 //!     // input pins.
 //!     let keys = keypad.decompose();
 //!
 //!     let first_key = &keys[0][0];
-//!     println!("Is first key pressed? {}\n", first_key.is_low());
+//!     println!("Is first key pressed? {}\n", first_key.is_low().unwrap());
 //!
 //!     // Print a table showing whether each key is pressed.
 //!
 //!     for (row_index, row) in keys.iter().enumerate() {
 //!         print!("row {}: ", row_index);
 //!         for key in row.iter() {
-//!             let is_pressed = if key.is_low() { 1 } else { 0 };
+//!             let is_pressed = if key.is_low().unwrap() { 1 } else { 0 };
 //!             print!(" {} ", is_pressed);
 //!         }
 //!         println!();
@@ -143,7 +143,7 @@ pub extern crate core as _core;
 pub mod mock_hal;
 
 use core::cell::RefCell;
-use embedded_hal::digital::{InputPin, OutputPin};
+use embedded_hal::digital::v2::{InputPin, OutputPin};
 
 /// A virtual `embedded-hal` input pin representing one key of the keypad.
 ///
@@ -163,39 +163,46 @@ use embedded_hal::digital::{InputPin, OutputPin};
 ///
 /// 2) Reading from a `KeypadInput` is slower than reading from a real input
 /// pin, because it needs to change the output pin state twice for every read.
-pub struct KeypadInput<'a> {
-    row: &'a InputPin,
-    col: &'a RefCell<OutputPin>,
+pub struct KeypadInput<'a, E> {
+    row: &'a dyn InputPin<Error = E>,
+    col: &'a RefCell<dyn OutputPin<Error = E>>,
 }
 
-impl<'a> KeypadInput<'a> {
+impl<'a, E> KeypadInput<'a, E> {
     /// Create a new `KeypadInput`. For use in macros.
-    pub fn new(row: &'a InputPin, col: &'a RefCell<OutputPin>) -> Self {
+    pub fn new(
+        row: &'a dyn InputPin<Error = E>,
+        col: &'a RefCell<dyn OutputPin<Error = E>>,
+    ) -> Self {
         Self { row, col }
     }
 }
 
-impl<'a> InputPin for KeypadInput<'a> {
+impl<'a, E> InputPin for KeypadInput<'a, E> {
+    type Error = E;
     /// Read the state of the key at this row and column. Not reentrant.
-    fn is_high(&self) -> bool {
-        !self.is_low()
+    fn is_high(&self) -> Result<bool, E> {
+        Ok(!self.is_low()?)
     }
 
     /// Read the state of the key at this row and column. Not reentrant.
-    fn is_low(&self) -> bool {
-        self.col.borrow_mut().set_low();
-        let out = self.row.is_low();
-        self.col.borrow_mut().set_high();
-        out
+    fn is_low(&self) -> Result<bool, E> {
+        self.col.borrow_mut().set_low()?;
+        let out = self.row.is_low()?;
+        self.col.borrow_mut().set_high()?;
+        Ok(out)
     }
 }
 
 /// Define a new struct representing your keypad matrix circuit.
 ///
 /// Every pin has a unique type, depending on its pin number and its current
-/// mode. This struct is where you specify which pin types will be used in the rows
-/// and columns of the keypad matrix. All the row pins must implement the
+/// mode. This struct is where you specify which pin types will be used in the
+/// rows and columns of the keypad matrix. All the row pins must implement the
 /// `InputPin` trait, and the column pins must implement the `OutputPin` trait.
+/// The associated `Error` type of the `InputPin` and `OutputPin` traits must be
+/// the same for every row and column pin, and you must specify it after your
+/// struct name with `<Error = ...>`
 ///
 /// You can specify the visibility of the struct (eg. `pub`) as usual, and add
 /// doc comments using the `#[doc="..."]` attribute.
@@ -212,10 +219,11 @@ impl<'a> InputPin for KeypadInput<'a> {
 /// extern crate keypad;
 ///
 /// use keypad::mock_hal::{self, Input, OpenDrain, Output, PullUp};
+/// use core::convert::Infallible;
 ///
-/// keypad_struct!{
+/// keypad_struct! {
 ///     #[doc="My super-special keypad."]
-///     pub struct ExampleKeypad {
+///     pub struct ExampleKeypad<Error = Infallible> {
 ///         rows: (
 ///             mock_hal::gpioa::PA0<Input<PullUp>>,
 ///             mock_hal::gpioa::PA1<Input<PullUp>>,
@@ -242,14 +250,70 @@ impl<'a> InputPin for KeypadInput<'a> {
 /// is then immediately initialized in a loop. This is fine as long as there is
 /// not a bug in how the macro calculates the dimensions of the array.
 
-// This macro is complicated because it's stupidly hard to index into a tuple.
-// The only way I found is to construct a different pattern for each field, and
-// then repeatedly destructure the tuple with each pattern. Luckily we're only
-// taking references to the fields, or it would get even harder.
+// There are two reasons why this big, scary macro is necessary:
+//
+// 1) Every single pin has a unique type, and we don't know which pins will be used. We know that
+//    they all implement a certain trait, but that doesn't help much because it doesn't tell us the
+//    size of the type, so we can't directly stick it into the struct. If we could use dynamic
+//    allocation, we could just store pins on the heap as boxed trait objects. But this crate needs
+//    to work on embedded platforms without an allocator! So, we use this macro to generate a
+//    struct containing the exact, concrete pin types the user provides.
+//
+// 2) We don't know how many pins there will be, because the keypad could have any number of rows
+//    and columns. That makes it hard to implement `decompose()`, which needs to iterate over the
+//    row and column pins. We can't store pins in arrays because they all have unique types, but we
+//    can store them in tuples instead. The problem is that you can't actually iterate over a tuple,
+//    and even indexing into arbitrary fields of a tuple using a macro is stupidly hard. The best
+//    approach I could come up with was to repeatedly destructure the tuple with different patterns,
+//    like this:
+//
+//        let tuple = (0, 1, 2);
+//        let array = [
+//            {
+//                let (ref x, ..) = tuple;
+//                x
+//            },
+//            {
+//                let (_, ref x, ..) = tuple;
+//                x
+//            },
+//            {
+//                let (_, _, ref x, ..) = tuple;
+//                x
+//            },
+//        ];
+//        for reference in array.into_iter() {
+//            // ...
+//        }
+//
+// So that's how the `keypad_struct!()` macro iterates over tuples of pins. It counts the length of
+// the tuple (also tricky!), creates patterns with increasing numbers of underscores, and uses them
+// to build up a temporary array of references that it can iterate over. Luckily this code only
+// needs to be run once, in `decompose()`, and not every time we read from a pin.
+//
+// I can't think of any simpler design that still has a convenient API and allows the keypad struct
+// to own the row and column pins. If they weren't owned, the crate would be less convenient to use
+// but could provide a generic Keypad struct like this:
+//
+//     pub struct Keypad<'a, E, const R: usize, const C: usize> {
+//         rows: [&'a dyn InputPin<Error = E>; R],
+//         columns: [&'a RefCell<dyn OutputPin<Error = E>>; C],
+//     }
+//
 #[macro_export]
 macro_rules! keypad_struct {
     (
         $(#[$attributes:meta])* $visibility:vis struct $struct_name:ident {
+            rows: ( $($row_type:ty),* $(,)* ),
+            columns: ( $($col_type:ty),* $(,)* ),
+        }
+    ) => {
+        compile_error!("You must specify the associated `Error` type of the row and column pins'\
+                        `InputPin` and `OutputPin` traits.\n\
+                        Example: `struct MyStruct <Error = Infallible> { ... }`");
+    };
+    (
+        $(#[$attributes:meta])* $visibility:vis struct $struct_name:ident <Error = $error_type:ty> {
             rows: ( $($row_type:ty),* $(,)* ),
             columns: ( $($col_type:ty),* $(,)* ),
         }
@@ -272,46 +336,49 @@ macro_rules! keypad_struct {
             $visibility fn decompose<'a>(&'a self) ->
                 keypad_struct!(
                     @array2d_type
+                        $crate::KeypadInput<'a, $error_type>,
                         ($($row_type),*)
                         ($($crate::_core::cell::RefCell<$col_type>),*)
                 )
             {
 
                 let rows: [
-                    &$crate::embedded_hal::digital::InputPin;
+                    &dyn $crate::embedded_hal::digital::v2::InputPin<Error = $error_type>;
                     keypad_struct!(@count $($row_type)*)
                 ]
                     = keypad_struct!(@tuple  self.rows,  ($($row_type),*));
 
                 let columns: [
-                    &$crate::_core::cell::RefCell<$crate::embedded_hal::digital::OutputPin>;
+                    &$crate::_core::cell::RefCell<dyn $crate::embedded_hal::digital::v2::OutputPin<Error = $error_type>>;
                     keypad_struct!(@count $($col_type)*)
                 ]
                     = keypad_struct!(@tuple  self.columns,  ($($col_type),*));
 
+                // Create an uninitialized 2d array of MaybeUninit.
                 let mut out: keypad_struct!(
                     @array2d_type
+                        $crate::_core::mem::MaybeUninit<$crate::KeypadInput<'a, $error_type>>,
                         ($($row_type),*)
                         ($($crate::_core::cell::RefCell<$col_type>),*)
                 ) = unsafe {
-                    $crate::_core::mem::uninitialized()
+                    $crate::_core::mem::MaybeUninit::uninit().assume_init()
                 };
 
+                // Initialize each element with a KeypadInput struct
                 for r in 0..rows.len() {
                     for c in 0..columns.len() {
-                        out[r][c] = $crate::KeypadInput::new(rows[r], columns[c]);
+                        out[r][c].write($crate::KeypadInput::new(rows[r], columns[c]));
                     }
                 }
-                out
+                // All elements are initialized. Transmute the array to the initialized type.
+                unsafe { $crate::_core::mem::transmute::<_, _>(out) }
             }
 
             /// Give back ownership of the row and column pins.
             ///
             /// This consumes the keypad struct. All references to its virtual
             /// `KeypadInput` pins must have gone out of scope before you try to
-            /// call `.release()`, or it will fail to compile. Opting in to the
-            /// non-lexical lifetimes feature in your project can make that
-            /// simpler.
+            /// call `.release()`, or it will fail to compile.
             ///
             /// The column pins will be returned inside of `RefCell`s (because
             /// macros are hard). You can use `.into_inner()` to extract
@@ -322,14 +389,11 @@ macro_rules! keypad_struct {
             }
         }
     };
-    (@array2d_type ($($row:ty),*) ($($col:ty),*) ) => {
-        [keypad_struct!(@array1d_type ($($col),*)) ; keypad_struct!(@count $($row)*)]
+    (@array2d_type $element_type:ty, ($($row:ty),*) ($($col:ty),*) ) => {
+        [keypad_struct!(@array1d_type $element_type, ($($col),*)) ; keypad_struct!(@count $($row)*)]
     };
-    (@array1d_type ($($col:ty),*)) => {
-        [keypad_struct!(@element_type) ; keypad_struct!(@count $($col)*)]
-    };
-    (@element_type ) => {
-        $crate::KeypadInput<'a>
+    (@array1d_type $element_type:ty, ($($col:ty),*)) => {
+        [$element_type ; keypad_struct!(@count $($col)*)]
     };
     (@count $($token_trees:tt)*) => {
         0usize $(+ keypad_struct!(@replace $token_trees 1usize))*
@@ -376,10 +440,11 @@ macro_rules! keypad_struct {
 /// # #![cfg_attr(docs_rs_workaround, feature(macro_vis_matcher))]
 /// # #[macro_use]
 /// # extern crate keypad;
+/// # use core::convert::Infallible;
 /// # use keypad::mock_hal::{self, Input, OpenDrain, Output, PullUp};
 /// # use keypad::mock_hal::{GpioExt, GPIOA};
 /// # keypad_struct!{
-/// #     pub struct ExampleKeypad {
+/// #     pub struct ExampleKeypad<Error = Infallible>{
 /// #         rows: (
 /// #             mock_hal::gpioa::PA0<Input<PullUp>>,
 /// #             mock_hal::gpioa::PA1<Input<PullUp>>,
@@ -430,6 +495,3 @@ macro_rules! keypad_new {
 
 #[cfg(feature = "example_generated")]
 pub mod example_generated;
-
-// #[cfg(feature = "example_generated")]
-// pub use example_generated::ExampleKeypad;
