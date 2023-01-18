@@ -435,13 +435,9 @@ macro_rules! keypad_struct {
             /// This consumes the keypad struct. All references to its virtual
             /// `KeypadInput` pins must have gone out of scope before you try to
             /// call `.release()`, or it will fail to compile.
-            ///
-            /// The column pins will be returned inside of `RefCell`s (because
-            /// macros are hard). You can use `.into_inner()` to extract
-            /// each column pin from its `RefCell`.
             #[allow(dead_code)]
-            $visibility fn release(self) ->(($($row_type),* ,), ($($crate::_core::cell::RefCell<$col_type>),* ,)) {
-                (self.rows, self.columns)
+            $visibility fn release(self) ->(($($row_type),* ,), ($($col_type),* ,)) {
+                (self.rows, keypad_struct!(@de_refcell_tuple  self.columns,  ($($col_type),*)))
             }
         }
     };
@@ -468,25 +464,11 @@ macro_rules! keypad_struct {
             nth
         }
     };
-    (@destructure_ref_cell $tuple:expr, ($($repeat_n:ty),*)) => {
-        {
-            let (
-                $(keypad_struct!(@underscore $repeat_n),)*
-                    nth, ..) = $tuple;
-            $crate::_core::cell::RefCell::<_>::new(nth)
-        }
-    };
     (@tuple_helper $tuple:expr, ($head:ty), ($($result:expr),*  $(,)*)) => {
         [
             keypad_struct!(@destructure_ref $tuple, ()),
             $($result),*
         ]
-    };
-    (@refcell_tuple_helper $tuple:expr, ($head:ty), ($($result:expr),*  $(,)*)) => {
-        (
-            keypad_struct!(@destructure_ref_cell $tuple, ()),
-            $($result),*
-        )
     };
     (@tuple_helper $tuple:expr, ($head:ty $(,$repeats:ty)* $(,)*),  ($($result:expr),*  $(,)*)) => {
         keypad_struct!(
@@ -495,6 +477,23 @@ macro_rules! keypad_struct {
                 keypad_struct!(@destructure_ref $tuple, ($($repeats),*)),
                 $($result),*
             )
+        )
+    };
+    (@tuple $tuple:expr, ($($repeats:ty),*)) => {
+        keypad_struct!(@tuple_helper $tuple, ($($repeats),*) , ())
+    };
+    (@destructure_ref_cell $tuple:expr, ($($repeat_n:ty),*)) => {
+        {
+            let (
+                $(keypad_struct!(@underscore $repeat_n),)*
+                    nth, ..) = $tuple;
+            $crate::_core::cell::RefCell::<_>::new(nth)
+        }
+    };
+    (@refcell_tuple_helper $tuple:expr, ($head:ty), ($($result:expr),*  $(,)*)) => {
+        (
+            keypad_struct!(@destructure_ref_cell $tuple, ()),
+            $($result),*
         )
     };
     (@refcell_tuple_helper $tuple:expr, ($head:ty $(,$repeats:ty)* $(,)*),  ($($result:expr),*  $(,)*)) => {
@@ -506,11 +505,34 @@ macro_rules! keypad_struct {
             )
         )
     };
-    (@tuple $tuple:expr, ($($repeats:ty),*)) => {
-        keypad_struct!(@tuple_helper $tuple, ($($repeats),*) , ())
-    };
     (@refcell_tuple $tuple:expr, ($($repeats:ty),*)) => {
         keypad_struct!(@refcell_tuple_helper $tuple, ($($repeats),*) , ())
+    };
+    (@destructure_de_ref_cell $tuple:expr, ($($repeat_n:ty),*)) => {
+        {
+            let (
+                $(keypad_struct!(@underscore $repeat_n),)*
+                    nth, ..) = $tuple;
+            nth.into_inner()
+        }
+    };
+    (@de_refcell_tuple_helper $tuple:expr, ($head:ty), ($($result:expr),*  $(,)*)) => {
+        (
+            keypad_struct!(@destructure_de_ref_cell $tuple, ()),
+            $($result),*
+        )
+    };
+    (@de_refcell_tuple_helper $tuple:expr, ($head:ty $(,$repeats:ty)* $(,)*),  ($($result:expr),*  $(,)*)) => {
+        keypad_struct!(
+            @de_refcell_tuple_helper $tuple, ($($repeats),*),
+            (
+                keypad_struct!(@destructure_de_ref_cell $tuple, ($($repeats),*)),
+                $($result),*
+            )
+        )
+    };
+    (@de_refcell_tuple $tuple:expr, ($($repeats:ty),*)) => {
+        keypad_struct!(@de_refcell_tuple_helper $tuple, ($($repeats),*) , ())
     };
 }
 
