@@ -367,14 +367,14 @@ macro_rules! keypad_struct {
             ///         pins.pa1.into_pull_up_input(),
             ///         pins.pa2.into_pull_up_input(),
             ///         pins.pa3.into_pull_up_input(),
-            ///     ), //rows
+            ///     ), // rows
             ///     (
             ///         pins.pa4.into_open_drain_output(),
             ///         pins.pa5.into_open_drain_output(),
             ///         pins.pa6.into_open_drain_output(),
             ///         pins.pa7.into_open_drain_output(),
             ///         pins.pa8.into_open_drain_output(),
-            ///     ), //columns
+            ///     ), // columns
             /// );
             /// # }
             /// ```

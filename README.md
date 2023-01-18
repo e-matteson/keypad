@@ -61,7 +61,7 @@ For an example that runs on an actual microcontroller, see
 use core::convert::Infallible;
 use embedded_hal::digital::v2::InputPin;
 use keypad::mock_hal::{self, GpioExt, Input, OpenDrain, Output, PullUp, GPIOA};
-use keypad::{keypad_new, keypad_struct};
+use keypad::keypad_struct;
 
 // Define the struct that represents your keypad matrix circuit,
 // picking the row and column pin numbers.
@@ -88,21 +88,21 @@ fn main() {
     let pins = GPIOA::split();
 
     // Create an instance of the keypad struct you defined above.
-    let keypad = keypad_new!(ExampleKeypad {
-        rows: (
+    let keypad = ExampleKeypad::new(
+        (
             pins.pa0.into_pull_up_input(),
             pins.pa1.into_pull_up_input(),
             pins.pa2.into_pull_up_input(),
             pins.pa3.into_pull_up_input(),
-        ),
-        columns: (
+        ), // rows
+        (
             pins.pa4.into_open_drain_output(),
             pins.pa5.into_open_drain_output(),
             pins.pa6.into_open_drain_output(),
             pins.pa7.into_open_drain_output(),
             pins.pa8.into_open_drain_output(),
-        ),
-    });
+        ), // columns
+    );
 
     // Create a 2d array of virtual `KeypadInput` pins, each representing 1 key
     // in the matrix. They implement the `InputPin` trait and can (mostly) be
