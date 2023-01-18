@@ -85,21 +85,21 @@
 //!     let pins = GPIOA::split();
 //!
 //!     // Create an instance of the keypad struct you defined above.
-//!     let keypad = keypad_new!(ExampleKeypad {
-//!         rows: (
+//!     let keypad = ExampleKeypad::new(
+//!         (
 //!             pins.pa0.into_pull_up_input(),
 //!             pins.pa1.into_pull_up_input(),
 //!             pins.pa2.into_pull_up_input(),
 //!             pins.pa3.into_pull_up_input(),
 //!         ),
-//!         columns: (
+//!         (
 //!             pins.pa4.into_open_drain_output(),
 //!             pins.pa5.into_open_drain_output(),
 //!             pins.pa6.into_open_drain_output(),
 //!             pins.pa7.into_open_drain_output(),
 //!             pins.pa8.into_open_drain_output(),
 //!         ),
-//!     });
+//!     );
 //!
 //!     // Create a 2d array of virtual `KeypadInput` pins, each
 //!     // representing 1 key in the matrix. They implement the
@@ -330,6 +330,62 @@ macro_rules! keypad_struct {
         }
 
         impl $struct_name {
+            /// Create an instance of the struct.
+            ///
+            /// The pin numbers and modes will need to match the ones you specified with `keypad_struct!()`.
+            ///
+            /// ```
+            /// # #![cfg_attr(docs_rs_workaround, feature(macro_vis_matcher))]
+            /// # #[macro_use]
+            /// # extern crate keypad;
+            /// # use core::convert::Infallible;
+            /// # use keypad::mock_hal::{self, Input, OpenDrain, Output, PullUp};
+            /// # use keypad::mock_hal::{GpioExt, GPIOA};
+            /// # keypad_struct!{
+            /// #     pub struct ExampleKeypad<Error = Infallible>{
+            /// #         rows: (
+            /// #             mock_hal::gpioa::PA0<Input<PullUp>>,
+            /// #             mock_hal::gpioa::PA1<Input<PullUp>>,
+            /// #             mock_hal::gpioa::PA2<Input<PullUp>>,
+            /// #             mock_hal::gpioa::PA3<Input<PullUp>>,
+            /// #         ),
+            /// #         columns: (
+            /// #             mock_hal::gpioa::PA4<Output<OpenDrain>>,
+            /// #             mock_hal::gpioa::PA5<Output<OpenDrain>>,
+            /// #             mock_hal::gpioa::PA6<Output<OpenDrain>>,
+            /// #             mock_hal::gpioa::PA7<Output<OpenDrain>>,
+            /// #             mock_hal::gpioa::PA8<Output<OpenDrain>>,
+            /// #         ),
+            /// #     }
+            /// # }
+            /// # fn main() {
+            /// let pins = GPIOA::split();
+            ///
+            /// let keypad = ExampleKeypad::new(
+            ///     (
+            ///         pins.pa0.into_pull_up_input(),
+            ///         pins.pa1.into_pull_up_input(),
+            ///         pins.pa2.into_pull_up_input(),
+            ///         pins.pa3.into_pull_up_input(),
+            ///     ), //rows
+            ///     (
+            ///         pins.pa4.into_open_drain_output(),
+            ///         pins.pa5.into_open_drain_output(),
+            ///         pins.pa6.into_open_drain_output(),
+            ///         pins.pa7.into_open_drain_output(),
+            ///         pins.pa8.into_open_drain_output(),
+            ///     ), //columns
+            /// );
+            /// # }
+            /// ```
+            $visibility fn new(
+                rows: ($($row_type),* ,),
+                columns: ($($col_type),* ,),) -> Self {
+                Self {
+                    rows,
+                    columns:  keypad_struct!(@refcell_tuple  columns,  ($($col_type),*)),
+                }
+            }
             /// Get a 2d array of embedded-hal input pins, each representing one
             /// key in the keypad matrix.
             #[allow(dead_code)]
@@ -412,11 +468,25 @@ macro_rules! keypad_struct {
             nth
         }
     };
+    (@destructure_ref_cell $tuple:expr, ($($repeat_n:ty),*)) => {
+        {
+            let (
+                $(keypad_struct!(@underscore $repeat_n),)*
+                    nth, ..) = $tuple;
+            $crate::_core::cell::RefCell::<_>::new(nth)
+        }
+    };
     (@tuple_helper $tuple:expr, ($head:ty), ($($result:expr),*  $(,)*)) => {
         [
             keypad_struct!(@destructure_ref $tuple, ()),
             $($result),*
         ]
+    };
+    (@refcell_tuple_helper $tuple:expr, ($head:ty), ($($result:expr),*  $(,)*)) => {
+        (
+            keypad_struct!(@destructure_ref_cell $tuple, ()),
+            $($result),*
+        )
     };
     (@tuple_helper $tuple:expr, ($head:ty $(,$repeats:ty)* $(,)*),  ($($result:expr),*  $(,)*)) => {
         keypad_struct!(
@@ -427,69 +497,20 @@ macro_rules! keypad_struct {
             )
         )
     };
+    (@refcell_tuple_helper $tuple:expr, ($head:ty $(,$repeats:ty)* $(,)*),  ($($result:expr),*  $(,)*)) => {
+        keypad_struct!(
+            @refcell_tuple_helper $tuple, ($($repeats),*),
+            (
+                keypad_struct!(@destructure_ref_cell $tuple, ($($repeats),*)),
+                $($result),*
+            )
+        )
+    };
     (@tuple $tuple:expr, ($($repeats:ty),*)) => {
         keypad_struct!(@tuple_helper $tuple, ($($repeats),*) , ())
     };
-}
-
-/// Create an instance of the struct you defined with the `keypad_struct!()` macro..
-///
-/// The pin numbers and modes will need to match the ones you specified with `keypad_struct!()`.
-///
-/// ```
-/// # #![cfg_attr(docs_rs_workaround, feature(macro_vis_matcher))]
-/// # #[macro_use]
-/// # extern crate keypad;
-/// # use core::convert::Infallible;
-/// # use keypad::mock_hal::{self, Input, OpenDrain, Output, PullUp};
-/// # use keypad::mock_hal::{GpioExt, GPIOA};
-/// # keypad_struct!{
-/// #     pub struct ExampleKeypad<Error = Infallible>{
-/// #         rows: (
-/// #             mock_hal::gpioa::PA0<Input<PullUp>>,
-/// #             mock_hal::gpioa::PA1<Input<PullUp>>,
-/// #             mock_hal::gpioa::PA2<Input<PullUp>>,
-/// #             mock_hal::gpioa::PA3<Input<PullUp>>,
-/// #         ),
-/// #         columns: (
-/// #             mock_hal::gpioa::PA4<Output<OpenDrain>>,
-/// #             mock_hal::gpioa::PA5<Output<OpenDrain>>,
-/// #             mock_hal::gpioa::PA6<Output<OpenDrain>>,
-/// #             mock_hal::gpioa::PA7<Output<OpenDrain>>,
-/// #             mock_hal::gpioa::PA8<Output<OpenDrain>>,
-/// #         ),
-/// #     }
-/// # }
-/// # fn main() {
-/// let pins = GPIOA::split();
-///
-/// let keypad = keypad_new!(ExampleKeypad {
-///     rows: (
-///         pins.pa0.into_pull_up_input(),
-///         pins.pa1.into_pull_up_input(),
-///         pins.pa2.into_pull_up_input(),
-///         pins.pa3.into_pull_up_input(),
-///     ),
-///     columns: (
-///         pins.pa4.into_open_drain_output(),
-///         pins.pa5.into_open_drain_output(),
-///         pins.pa6.into_open_drain_output(),
-///         pins.pa7.into_open_drain_output(),
-///         pins.pa8.into_open_drain_output(),
-///     ),
-/// });
-/// # }
-/// ```
-#[macro_export]
-macro_rules! keypad_new {
-    ( $struct_name:ident {
-        rows: ( $($row_val:expr),* $(,)* ),
-        columns: ( $($col_val:expr),* $(,)* ),
-    }) => {
-        $struct_name {
-            rows:  ($($row_val),* ,),
-            columns:  ($($crate::_core::cell::RefCell::new($col_val)),* ,),
-        }
+    (@refcell_tuple $tuple:expr, ($($repeats:ty),*)) => {
+        keypad_struct!(@refcell_tuple_helper $tuple, ($($repeats),*) , ())
     };
 }
 
